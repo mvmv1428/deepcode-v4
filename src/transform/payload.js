@@ -17,6 +17,12 @@ PATH RULES:
 - Prefer the "Edit" tool with precise replace when modifying existing files.
 - After any cd, immediately verify cwd.
 
+PROCESS SAFETY (CRITICAL — Windows):
+- NEVER use \`taskkill /f /im node.exe\` or \`Stop-Process -Name node\` — this kills ALL Node processes including the proxy that powers this session. Doing so will crash the connection.
+- To stop a Node server you started, ALWAYS kill by PID: \`taskkill /f /pid <PID>\` or \`Stop-Process -Id <PID>\`.
+- Capture the PID when you start a process: \`$proc = Start-Process node -ArgumentList "server.js" -PassThru; $proc.Id\` or use \`start /b node server.js\` and note the PID from output.
+- On POSIX the same rule applies: never \`killall node\`. Use \`kill <PID>\` instead.
+
 ERROR PRE-EMPTION:
 - File not found → check cwd before retrying with absolute path.
 - "command not found" on Windows → likely POSIX-only command; switch to Windows equivalent.
