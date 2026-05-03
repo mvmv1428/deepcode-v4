@@ -1,6 +1,6 @@
 # DeepCode V4
 
-![DeepCode V4 en acción](./screenshot.png)
+![DeepCode V4 en acción](./screenshot1.png)
 
 Este proyecto es un proxy avanzado basado en el repositorio oficial de DeepSeek, diseñado para funcionar como un intermediario perfecto entre **Claude Code** y los modelos de DeepSeek. Está impulsado por el **cerebro de DeepCode V4 Pro**, lo cual le otorga una mayor compatibilidad y precisión al utilizar las herramientas (*tools*) nativas de Claude Code.
 
