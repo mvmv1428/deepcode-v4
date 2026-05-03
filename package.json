@@ -1,0 +1,58 @@
+{
+  "name": "deepcode-v4",
+  "version": "1.1.5",
+  "description": "DeepSeek V4 proxy for Claude Code. Anthropic-format streaming, tool-calling, prompt-caching, and live token/cost statusline.",
+  "main": "src/proxy.js",
+  "bin": {
+    "deepcode": "bin/deepcode-v4.js",
+    "deepcode-clean": "bin/deepcode-clean.js",
+    "deepcode-statusline": "bin/deepcode-statusline.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node bin/deepcode-v4.js",
+    "statusline": "node bin/deepcode-statusline.js --self-test",
+    "statusline:install": "node bin/deepcode-statusline.js --install",
+    "statusline:uninstall": "node bin/deepcode-statusline.js --uninstall",
+    "postinstall": "node bin/deepcode-statusline.js --install",
+    "preuninstall": "node bin/deepcode-statusline.js --uninstall",
+    "test": "node test/smoke-phase3.js && node test/smoke-v110.js",
+    "test:phase3": "node test/smoke-phase3.js",
+    "test:v110": "node test/smoke-v110.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "claude-code",
+    "deepseek",
+    "deepseek-v4",
+    "proxy",
+    "tool-calling",
+    "ai-coding-agent",
+    "anthropic-proxy",
+    "statusline",
+    "prompt-cache"
+  ],
+  "author": "Matías <mvmv1428@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mvmv1428/deepcode-v4.git"
+  },
+  "homepage": "https://github.com/mvmv1428/deepcode-v4#readme",
+  "bugs": {
+    "url": "https://github.com/mvmv1428/deepcode-v4/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

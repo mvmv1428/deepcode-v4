@@ -1,0 +1,32 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Logs
+usage.jsonl
+*.log
+
+# Backups & temp
+*.bak
+*.tmp
+*.tgz
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local Claude state
+.claude/
+
+# Stress-tests & unit tests
+proxy-stress-test/
+test/
