@@ -12,6 +12,16 @@
 - 🔄 **Continúa sesiones de Claude** — ¿Se te acabaron los tokens? `deepcode --resume` y sigues donde lo dejaste.
 - 📊 **Statusline en tiempo real** — Tokens consumidos y costo directo en la barra inferior de Claude Code.
 
+## 📦 Requisitos Previos
+
+Antes de instalar DeepCode, asegúrate de tener:
+
+1. **Claude Code** instalado y funcionando en tu sistema. Puedes instalarlo siguiendo la [guía oficial de Anthropic](https://docs.anthropic.com/en/docs/claude-code/overview).
+2. **API Key de DeepSeek V4** — Obtén tu clave en [platform.deepseek.com](https://platform.deepseek.com). DeepCode usa esta API key para enrutar las peticiones hacia DeepSeek V4 Pro.
+
+> [!IMPORTANT]
+> Sin Claude Code instalado, `deepcode` no podrá ejecutarse. Sin una API key de DeepSeek válida, no se podrán procesar las peticiones.
+
 ## 🚀 Instalación
 
 ```bash
