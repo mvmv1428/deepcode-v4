@@ -7,7 +7,7 @@ const https = require('https');
 const { StringDecoder } = require('string_decoder');
 
 const { loadEnv, getConfig, requireApiKey, validateKnownModels } = require('./config/env');
-const { sanitizeRequestBody, EXPERT_PROMPT } = require('./transform/payload');
+const { sanitizeRequestBody } = require('./transform/payload');
 const { normalizeHeaders } = require('./transform/headers');
 const { createStreamProcessor } = require('./stream/sseParser');
 const { canonicalizeUpstreamPath } = require('./upstream/path');
@@ -55,7 +55,7 @@ function createProxyServer() {
             ...config.retry,
             onRetry: ({ attempt, delay, reason }) => {
                 const detail = reason.kind === 'status' ? `status=${reason.status}` : `code=${reason.error?.code || 'unknown'}`;
-                console.error(`[deepcode-v4] retry attempt=${attempt} in ${delay}ms (${detail})`);
+                console.error(`[deepcode] retry attempt=${attempt} in ${delay}ms (${detail})`);
             },
         },
     });
@@ -84,7 +84,7 @@ function createProxyServer() {
             }
         });
 
-        req.on('end', () => {
+        req.on('end', async () => {
             if (aborted) return;
 
             let bodyStr = Buffer.concat(chunks).toString('utf8');
@@ -92,6 +92,17 @@ function createProxyServer() {
 
             try {
                 parsed = JSON.parse(bodyStr);
+
+                // Vision layer: convert images to text descriptions BEFORE sanitization
+                if (parsed && process.env.DEEPCODE_VISION_ENABLED === '1') {
+                    try {
+                        const { processVisionBlocks } = require('./vision/processor');
+                        await processVisionBlocks(parsed);
+                    } catch (e) {
+                        console.error('[deepcode] vision error:', e.message);
+                    }
+                }
+
                 parsed = sanitizeRequestBody(parsed);
                 bodyStr = JSON.stringify(parsed);
             } catch {
@@ -176,7 +187,7 @@ function createProxyServer() {
                         let paused = false;
 
                         const fireIdle = () => {
-                            console.error(`[deepcode-v4] stream idle ${STREAM_IDLE_MS}ms — destroying upstream socket`);
+                            console.error(`[deepcode] stream idle ${STREAM_IDLE_MS}ms — destroying upstream socket`);
                             clearIdleWatchdog();
                             streamDone = true;
                             try { proxyRes.destroy(new Error('stream idle timeout')); } catch { }

@@ -1,21 +1,19 @@
 'use strict';
 
 /**
- * Active-session marker for the deepcode-v4 proxy.
+ * Active-session marker for the DeepCode proxy.
  *
  * Lifecycle:
  *   1. Proxy generates a UUID, writes ~/.claude/deepcode-session-<uuid>.json,
  *      and injects DEEPCODE_V4_SESSION_ID=<uuid> into the Claude Code child env.
  *   2. Claude Code inherits the env. When it spawns the statusline command,
  *      the child also inherits DEEPCODE_V4_SESSION_ID.
- *   3. The statusline reads the env var, locates the marker, filters
- *      usage.jsonl entries to >= startedAt, and renders. If the env var is
- *      missing (Claude Code launched without the proxy), the statusline
- *      exits silently — no output.
+ *   3. The statusline reads the env var, locates the marker, and renders
+ *      live stats. If the env var is missing, the statusline exits silently.
  *   4. On proxy exit the marker is removed.
  *
  * Marker contents:
- *   { id, pid, startedAt, model, logPath, proxyUrl }
+ *   { id, pid, startedAt, model, proxyUrl, stats }
  */
 
 const fs = require('fs');

@@ -1,17 +1,12 @@
 'use strict';
 
 /**
- * Usage Tracker for the deepcode-v4 proxy.
+ * Usage Tracker for the DeepCode proxy.
  *
  * Default: ON. Disable with DEEPCODE_DEBUG_USAGE=0.
  *
- * Default log file: ~/.claude/deepcode-usage.jsonl (override with DEEPCODE_USAGE_LOG).
- * Tracking lives outside the project tree so it works no matter where the user
- * launches `deepcode-v4` from.
- *
- * Reads:
- *   - Terminal window title (live)
- *   - JSONL log → consumed by the statusline and `deepcode-usage`
+ * Tracks token usage, costs, and cache hit rates in-memory.
+ * Stats are persisted to the session marker for the statusline.
  */
 
 const { getRate, isPromoActive, daysUntilPromoEnd, PROMO_END_UTC } = require('./pricing');
@@ -75,10 +70,10 @@ function _initOnce() {
     if (isPromoActive()) {
         const days = daysUntilPromoEnd();
         if (days <= 7) {
-            process.stderr.write(`[deepcode-v4] ⚠️  v4-pro 75% promo ends in ${days}d (${PROMO_END_UTC}). Retail pricing kicks in automatically.\n`);
+            process.stderr.write(`[deepcode] ⚠️  v4-pro 75% promo ends in ${days}d (${PROMO_END_UTC}). Retail pricing kicks in automatically.\n`);
         }
     } else {
-        process.stderr.write(`[deepcode-v4] ℹ️  v4-pro promo expired ${PROMO_END_UTC} — using retail pricing.\n`);
+        process.stderr.write(`[deepcode] ℹ️  v4-pro promo expired ${PROMO_END_UTC} — using retail pricing.\n`);
     }
 
     // Set initial title
@@ -164,29 +159,10 @@ function endRequest() {
 }
 
 function printSessionSummary() {
-    if (!_getEnabled() || session.requestCount === 0) return;
-
-    const elapsed = ((Date.now() - session.startedAt) / 1000).toFixed(0);
-    const totalCache = session.totalCacheHit + session.totalCacheMiss;
-    const hitRate = totalCache > 0
-        ? ((session.totalCacheHit / totalCache) * 100).toFixed(1) + '%'
-        : 'N/A';
-    const totalTok = session.totalInputTokens + session.totalOutputTokens;
-
-    process.stderr.write('\n');
-    process.stderr.write('╔══════════════════════════════════════════════╗\n');
-    process.stderr.write('║         📊 RESUMEN DE SESIÓN                ║\n');
-    process.stderr.write('╠══════════════════════════════════════════════╣\n');
-    process.stderr.write(`║ Duración:     ${elapsed}s | ${session.requestCount} requests\n`);
-    process.stderr.write(`║ Tokens:       ${totalTok.toLocaleString()} (${session.totalInputTokens.toLocaleString()} in + ${session.totalOutputTokens.toLocaleString()} out)\n`);
-    if (totalCache > 0) {
-        process.stderr.write(`║ Cache:        ${hitRate} hit (${session.totalCacheHit.toLocaleString()} / ${totalCache.toLocaleString()})\n`);
+    // Session stats are tracked in the statusline only
+    if (session.requestCount > 0) {
+        process.stderr.write('\x1b]0;\x07');
     }
-    process.stderr.write(`║ Costo total:  $${session.totalCostUsd.toFixed(6)}\n`);
-    process.stderr.write('╚══════════════════════════════════════════════╝\n\n');
-
-    // Restore terminal title
-    process.stderr.write('\x1b]0;\x07');
 }
 
 module.exports = {

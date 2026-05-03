@@ -9,10 +9,10 @@
 node_modules/
 test/
 proxy-stress-test/
-usage.jsonl
 *.log
 *.bak
 *.tmp
 *.tgz
+*.png
 .DS_Store
 Thumbs.db

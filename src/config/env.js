@@ -45,7 +45,7 @@ function loadEnv(opts = {}) {
     if (envPath) {
         const result = dotenv.config({ path: envPath });
         if (result.error && !opts.silent) {
-            console.error(`[deepcode-v4] dotenv parse error at ${envPath}: ${result.error.message}`);
+            console.error(`[deepcode] dotenv parse error at ${envPath}: ${result.error.message}`);
         }
         _loadedFrom = envPath;
     }
@@ -98,7 +98,7 @@ function validateKnownModels(config) {
     ];
     const unknown = checked.filter(([, name]) => name && !KNOWN_MODELS.has(name));
     for (const [slot, name] of unknown) {
-        console.warn(`[deepcode-v4] warning: model "${name}" (${slot}) not in known list. DeepSeek may silently map it to deepseek-v4-flash.`);
+        console.warn(`[deepcode] warning: model "${name}" (${slot}) not in known list. DeepSeek may silently map it to deepseek-v4-flash.`);
     }
     return unknown.length === 0;
 }

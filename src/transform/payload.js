@@ -1,6 +1,6 @@
 'use strict';
 
-const EXPERT_PROMPT = `
+const EXPERT_PROMPT_BASE = `
 You are an expert Claude Code agent powered by DeepSeek V4.
 
 ENVIRONMENT DETECTION (run BEFORE first file/Bash op):
@@ -36,9 +36,19 @@ TOOL USAGE:
 - On Windows, the PowerShell tool may be available alongside Bash (when CLAUDE_CODE_USE_POWERSHELL_TOOL=1). Prefer it for native PowerShell semantics; otherwise Bash is the default shell tool.
 
 MODEL CAPABILITIES:
-- Text-only (DeepSeek V4). Cannot see images, screenshots, or diagrams.
-- If user sends an image, respond politely: text-only mode, request a description.
 `;
+
+const MODEL_CAP_TEXT_ONLY = `- Text-only (DeepSeek V4). Cannot see images, screenshots, or diagrams.
+- If user sends an image, respond politely that you are in text-only mode. Suggest they can enable local vision by installing Ollama (https://ollama.com) with a vision model like qwen2-vl (ollama pull qwen2-vl:7b). DeepCode will auto-detect it on the next session.`;
+
+const MODEL_CAP_VISION = `- DeepSeek V4 with local vision layer enabled. Images sent by the user are automatically analyzed by a local vision model and converted to detailed text descriptions.
+- When you see a message containing "[Imagen analizada por visión local", that IS the image content — use the description to understand and respond as if you can see the image.
+- You CAN help with images, screenshots, diagrams, and UI mockups through the vision layer.`;
+
+function getExpertPrompt() {
+    const isVision = process.env.DEEPCODE_VISION_ENABLED === '1';
+    return EXPERT_PROMPT_BASE + (isVision ? MODEL_CAP_VISION : MODEL_CAP_TEXT_ONLY);
+}
 
 const TOOL_NAME_REMAP = {
     shell_call: 'Bash',
@@ -90,8 +100,9 @@ function ensureValidInputSchema(schema) {
 }
 
 function transformSystem(system) {
+    const prompt = getExpertPrompt();
     if (!system) {
-        return EXPERT_PROMPT;
+        return prompt;
     }
 
     if (typeof system === 'string') {
@@ -99,7 +110,7 @@ function transformSystem(system) {
         // EXPERT_PROMPT block so the upstream caches it across the session.
         return [
             { type: 'text', text: rebrandSystemText(system) },
-            { type: 'text', text: EXPERT_PROMPT, cache_control: { type: 'ephemeral' } },
+            { type: 'text', text: prompt, cache_control: { type: 'ephemeral' } },
         ];
     }
 
@@ -115,7 +126,7 @@ function transformSystem(system) {
         // Tag the appended EXPERT_PROMPT with ephemeral cache_control so it is
         // billed once and read from cache on every subsequent request. Without
         // this the ~400-token suffix is paid in full on each turn.
-        cleaned.push({ type: 'text', text: EXPERT_PROMPT, cache_control: { type: 'ephemeral' } });
+        cleaned.push({ type: 'text', text: prompt, cache_control: { type: 'ephemeral' } });
         return cleaned;
     }
 
@@ -223,6 +234,6 @@ module.exports = {
     transformBlock,
     sanitizeText,
     ensureValidInputSchema,
-    EXPERT_PROMPT,
+    getExpertPrompt,
     IMAGE_STUB_TEXT,
 };

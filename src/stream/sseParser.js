@@ -67,7 +67,7 @@ function logCacheUsage(usage) {
     if (typeof hit === 'number' || typeof miss === 'number') {
         const h = typeof hit === 'number' ? hit : 0;
         const m = typeof miss === 'number' ? miss : 0;
-        console.error(`[deepcode-v4] cache hit=${h} miss=${m} (total input=${h + m})`);
+        console.error(`[deepcode] cache hit=${h} miss=${m} (total input=${h + m})`);
     }
     if (usageTracker.isEnabled()) usageTracker.recordUsage(usage); // DEBUG_USAGE
 }

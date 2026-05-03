@@ -2,69 +2,65 @@
 
 ![DeepCode V4 en acción](./screenshot-1.png)
 
-Este proyecto es un proxy avanzado basado en el repositorio oficial de DeepSeek, diseñado para funcionar como un intermediario perfecto entre **Claude Code** y los modelos de DeepSeek. Está impulsado por el **cerebro de DeepCode V4 Pro**, lo cual le otorga una mayor compatibilidad y precisión al utilizar las herramientas (*tools*) nativas de Claude Code.
+**DeepSeek V4 Pro + Claude Code + Visión Local.** Un solo comando. El proxy que hace funcionar DeepSeek como si fuera Claude — con tools nativas, 1 millón de tokens de contexto, y **soporte de imágenes** vía LLM local. Todo por una fracción del costo.
 
+## ✨ ¿Qué hace especial a DeepCode?
 
-## 🌟 Características Principales
+- 👁️ **Visión con DeepSeek** — DeepSeek no soporta imágenes. DeepCode sí. Auto-detecta Ollama o LM Studio y le da ojos a DeepSeek usando un modelo de visión local. Sin configurar nada.
+- 🔧 **100% compatible con Claude Code** — Mismos flags, mismas tools, mismo entorno. Usa `deepcode` igual que usarías `claude`.
+- 💰 **95% más barato** — DeepSeek V4 Pro cuesta ~$0.04 por cada $0.90 de Claude Sonnet.
+- 🔄 **Continúa sesiones de Claude** — ¿Se te acabaron los tokens? `deepcode --resume` y sigues donde lo dejaste.
+- 📊 **Statusline en tiempo real** — Tokens consumidos y costo directo en la barra inferior de Claude Code.
 
-- **Cerebro de DeepCode V4 Pro**: Mejor interpretación, compatibilidad y ejecución de las llamadas a herramientas (*tool-calling*) nativas de Claude Code.
-- **Transparencia Total con Claude Code**: Soporta los flags nativos de la CLI de Claude.
-- **Barra de estado integrada (Statusline)**: Muestra en tiempo real los tokens consumidos y el costo directamente en la interfaz inferior de Claude Code.
-- **Caché y Optimización**: Mantiene los *breakpoints* de caché (*prompt-cache*) de Anthropic para ahorrar tokens y corrige comportamientos inestables de *streaming* (SSE).
-
-## 🚀 Instalación y Uso
-
-Instala la herramienta globalmente utilizando npm:
+## 🚀 Instalación
 
 ```bash
 npm install -g deepcode-v4
 ```
 
-Una vez instalado, el comando principal para iniciar la aplicación es `deepcode`.
+## 📋 Uso
 
-### Comandos y Ejemplos de Uso
+```bash
+deepcode                              # Nueva sesión
+deepcode --resume                     # Continuar sesión anterior
+deepcode --dangerously-skip-permissions  # Modo autónomo
+deepcode "crea una API REST con Express" # Prompt directo
+```
 
-Puedes usar el comando `deepcode` de la misma manera que usarías `claude code`. El proxy se encargará de traducir todo en segundo plano.
+Cualquier flag de `claude` funciona con `deepcode`.
 
-- **Iniciar una nueva sesión:**
-  ```bash
-  deepcode
-  ```
+## ⚙️ Configuración
 
-- **Continuar una sesión anterior:**  
-  Funciona exactamente igual que el comando nativo `claude --resume`:
-  ```bash
-  deepcode --resume
-  ```
+Configura tu `DEEPSEEK_API_KEY` de una de estas formas:
+- Archivo `.env` en tu carpeta de trabajo
+- Variable de entorno del sistema
+- `~/.deepcode-v4/.env` (recomendado para uso global)
 
-- **Saltar confirmación de permisos (Modo automático):**  
-  Al igual que con Claude Code, puedes usar el flag de permisos peligrosos para que la IA actúe de forma autónoma sin pedir confirmación:
-  ```bash
-  deepcode --dangerously-skip-permissions
-  ```
+Revisa `.env.example` para ver todas las opciones disponibles.
 
-*Nota: Cualquier otro flag compatible con `claude code` puede pasarse directamente al comando `deepcode`.*
+> ⚠️ **Seguridad:** Tu API key se queda en tu máquina local. Si creas el `.env` dentro de un proyecto, recuerda agregar `.env` a tu `.gitignore`.
 
-## ⚙️ Configuración y Seguridad
+## 👁️ Visión Local (Auto-detectada)
 
-Necesitas configurar tu `DEEPSEEK_API_KEY`. Puedes hacerlo de las siguientes maneras:
-- Creando un archivo `.env` en la misma carpeta donde vas a trabajar y ejecutar el comando.
-- Configurando la variable de entorno globalmente en tu sistema o terminal.
-- Creando un archivo `.env` en tu directorio de usuario: `~/.deepcode-v4/.env` (recomendado para uso global).
+DeepSeek no puede ver imágenes. **DeepCode le da ojos.**
 
-*(Revisa el archivo `.env.example` incluido en este repositorio para ver cómo estructurarlo y otras configuraciones adicionales disponibles).*
+Al ejecutar `deepcode`, el proxy detecta automáticamente si tienes un LLM de visión local corriendo. Si lo encuentra, intercepta las imágenes, las convierte en descripciones textuales detalladas y se las pasa a DeepSeek para que razone sobre ellas. Si no encuentra un LLM local, funciona normal en modo texto.
 
-> ⚠️ **Seguridad de tu API Key:**  
-> Tu clave de API está perfectamente protegida a nivel local en tu entorno. Sin embargo, si decides crear el archivo `.env` directamente en la carpeta del proyecto en el que estás trabajando con Claude, **recuerda agregar `.env` al archivo `.gitignore` de tu proyecto**. Así evitarás subir accidentalmente tu clave a GitHub.
+**Activar visión (3 pasos):**
+1. Instala [Ollama](https://ollama.com)
+2. `ollama pull qwen2-vl:7b`
+3. Ejecuta `deepcode` — la visión se activa sola
 
-## 🛠️ Utilidades Adicionales (Resumen)
+**Modelos recomendados:**
+| Modelo | VRAM | Calidad |
+|--------|------|---------|
+| `qwen2-vl:7b` | ~5 GB | Muy buena |
+| `qwen3-vl:8b` | ~6 GB | Excelente |
+| `llava:7b` | ~5 GB | Buena |
+| `moondream` | ~2 GB | Ligera |
 
-El paquete incluye otros comandos secundarios que se instalan junto con el principal:
-
-- **`deepcode`**: El comando principal que levanta el proxy y lanza la sesión de Claude conectada a DeepSeek V4 Pro.
-- **`deepcode-clean`**: Sanitiza y limpia los archivos de historial de Claude Code (`.jsonl`) para facilitar la portabilidad si decides cambiar de API.
-- **`deepcode-statusline`**: Comando de utilidad interna. Permite instalar o desinstalar la barra de consumo de tokens en la interfaz de Claude Code (`--install` / `--uninstall`).
+También soporta **LM Studio** (`localhost:1234`).
 
 ## 📜 Licencia
 
-Este proyecto está bajo la Licencia MIT.
+MIT

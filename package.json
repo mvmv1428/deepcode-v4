@@ -1,6 +1,6 @@
 {
   "name": "deepcode-v4",
-  "version": "1.1.6",
+  "version": "1.1.9",
   "description": "DeepSeek V4 proxy for Claude Code. Anthropic-format streaming, tool-calling, prompt-caching, and live token/cost statusline.",
   "main": "src/proxy.js",
   "bin": {
@@ -20,10 +20,7 @@
     "statusline:install": "node bin/deepcode-statusline.js --install",
     "statusline:uninstall": "node bin/deepcode-statusline.js --uninstall",
     "postinstall": "node bin/deepcode-statusline.js --install",
-    "preuninstall": "node bin/deepcode-statusline.js --uninstall",
-    "test": "node test/smoke-phase3.js && node test/smoke-v110.js",
-    "test:phase3": "node test/smoke-phase3.js",
-    "test:v110": "node test/smoke-v110.js"
+    "preuninstall": "node bin/deepcode-statusline.js --uninstall"
   },
   "dependencies": {
     "dotenv": "^16.4.5"
