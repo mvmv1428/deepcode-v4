@@ -1,6 +1,6 @@
 {
   "name": "deepcode-v4",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "DeepSeek V4 proxy for Claude Code. Anthropic-format streaming, tool-calling, prompt-caching, and live token/cost statusline.",
   "main": "src/proxy.js",
   "bin": {
