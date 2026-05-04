@@ -1,83 +1,89 @@
 # DeepCode V4
 
-![DeepCode V4 en acción](./screenshot-1.png)
+🇪🇸 *[Leer en Español](./README-es.md)*
 
-**DeepSeek V4 Pro + Claude Code + Visión Local.** Un solo comando. El proxy que hace funcionar DeepSeek como si fuera Claude — con tools nativas, 1 millón de tokens de contexto, y **soporte de imágenes** vía LLM local. Todo por una fracción del costo.
+![DeepCode V4 in action](./screenshot-1.png)
 
-## ✨ ¿Qué hace especial a DeepCode?
+**DeepSeek V4 Pro + Claude Code + Local Vision.** A single command. The ultimate proxy that makes DeepSeek work seamlessly as if it were Claude — with native tool-calling, 1M context tokens, and **image support** via local LLMs. All for a fraction of the cost.
 
-- 👁️ **Visión con DeepSeek** — DeepSeek no soporta imágenes. DeepCode sí. Auto-detecta Ollama o LM Studio y le da ojos a DeepSeek usando un modelo de visión local. Sin configurar nada.
-- 🧠 **Soporte Nativo Thinking Mode** — Renderiza el razonamiento (R1) de DeepSeek directamente en el bloque colapsable `∴ Thinking…` de Claude Code. Soporta tool-calls encadenadas sin perder contexto.
-- 🎛️ **Control de Esfuerzo Nativo** — Usa el comando `/effort low` o `/effort max` en la consola; el proxy traduce en tiempo real los tokens al motor de DeepSeek.
-- 🔧 **100% compatible con Claude Code** — Mismos flags, mismas tools, mismo entorno. Usa `deepcode` igual que usarías `claude`.
-- 💰 **95% más barato** — DeepSeek V4 Pro cuesta ~$0.04 por cada $0.90 de Claude Sonnet.
-- 🔄 **Continúa sesiones de Claude** — ¿Se te acabaron los tokens? `deepcode --resume` y sigues donde lo dejaste.
-- 📊 **Statusline en tiempo real** — Tokens consumidos y costo directo en la barra inferior de Claude Code.
+## ✨ Why DeepCode?
 
-## 📦 Requisitos Previos
+- 👁️ **Vision for DeepSeek** — DeepSeek doesn't support images. DeepCode does. It auto-detects Ollama or LM Studio and gives DeepSeek eyes using a local vision model. Zero configuration required.
+- 🧠 **Native Thinking Mode Support** — Renders DeepSeek's reasoning (R1) directly into Claude Code's collapsible `∴ Thinking…` block. Supports chained tool-calls without losing context.
+- 🎛️ **Native Effort Control** — Use the `/effort low` or `/effort max` commands in the console; the proxy translates Anthropic's tokens to DeepSeek's engine in real-time.
+- 🔧 **100% compatible with Claude Code** — Same flags, same tools, same environment. Use `deepcode` exactly as you would use `claude`.
+- 💰 **95% cheaper** — DeepSeek V4 Pro costs ~$0.04 for every $0.90 you would spend on Claude Sonnet.
+- 🔄 **Continue Claude sessions** — Ran out of tokens? Run `deepcode --resume` and pick up right where you left off.
+- 📊 **Real-time Statusline** — Track tokens consumed and direct costs right in the bottom bar of Claude Code.
 
-Antes de instalar DeepCode, asegúrate de tener:
+## 📦 Prerequisites
 
-1. **Claude Code** instalado y funcionando en tu sistema. Puedes instalarlo siguiendo la [guía oficial de Anthropic](https://docs.anthropic.com/en/docs/claude-code/overview).
-2. **API Key de DeepSeek V4** — Obtén tu clave en [platform.deepseek.com](https://platform.deepseek.com). DeepCode usa esta API key para enrutar las peticiones hacia DeepSeek V4 Pro.
+Before installing DeepCode, make sure you have:
+
+1. **Claude Code** installed and working on your system. You can install it following the [official Anthropic guide](https://docs.anthropic.com/en/docs/claude-code/overview).
+2. **DeepSeek V4 API Key** — Get your key at [platform.deepseek.com](https://platform.deepseek.com). DeepCode uses this API key to route requests to DeepSeek V4 Pro.
 
 > [!IMPORTANT]
-> Sin Claude Code instalado, `deepcode` no podrá ejecutarse. Sin una API key de DeepSeek válida, no se podrán procesar las peticiones.
+> Without Claude Code installed, `deepcode` will not run. Without a valid DeepSeek API key, requests cannot be processed.
 
-## 🚀 Instalación
+## 🚀 Installation
 
 ```bash
 npm install -g deepcode-v4
 ```
 
-## 📋 Uso
+## 📋 Usage
 
 ```bash
-deepcode                              # Nueva sesión
-deepcode --resume                     # Continuar sesión anterior
-deepcode --dangerously-skip-permissions  # Modo autónomo
-deepcode "crea una API REST con Express" # Prompt directo
-deepcode --no-vision                  # Desactiva la visión auto-detectada
+deepcode                              # New session
+deepcode "create an Express REST API" # Direct prompt
+deepcode --no-vision                  # DeepCode specific: Disable auto-detected vision
+
+# --- Native Claude Code Flags ---
+# DeepCode acts as a transparent wrapper, so all native Claude flags work flawlessly:
+deepcode --resume                     # Open interactive picker to resume a previous session
+deepcode --resume <session-id>        # Continue a specific previous session directly
+deepcode --dangerously-skip-permissions  # Autonomous mode (auto-approve all tool uses)
 ```
 
-Cualquier flag de `claude` funciona con `deepcode`.
+Any other `claude` flag works perfectly with `deepcode`.
 
-**Comandos nativos dentro de la consola:**
-- `/effort low` o `/effort max`: Controla el tiempo y la profundidad del pensamiento de DeepSeek en tiempo real.
-- `/model sonnet`: Cambia al instante a la versión ultra-rápida `deepseek-v4-flash`.
+**Native in-console commands:**
+- `/effort low` or `/effort max`: Control DeepSeek's thinking depth and time on the fly.
+- `/model sonnet`: Instantly switch to the ultra-fast `deepseek-v4-flash` version.
 
-## ⚙️ Configuración
+## ⚙️ Configuration
 
-Configura tu `DEEPSEEK_API_KEY` de una de estas formas:
-- Archivo `.env` en tu carpeta de trabajo
-- Variable de entorno del sistema
-- `~/.deepcode-v4/.env` (recomendado para uso global)
+Configure your `DEEPSEEK_API_KEY` in one of the following ways:
+- `.env` file in your working directory
+- System environment variable
+- `~/.deepcode-v4/.env` (recommended for global use)
 
-Revisa `.env.example` para ver todas las opciones disponibles.
+Check `.env.example` to see all available options.
 
-> ⚠️ **Seguridad:** Tu API key se queda en tu máquina local. Si creas el `.env` dentro de un proyecto, recuerda agregar `.env` a tu `.gitignore`.
+> ⚠️ **Security:** Your API key stays on your local machine. If you create the `.env` inside a project, remember to add `.env` to your `.gitignore`.
 
-## 👁️ Visión Local (Auto-detectada)
+## 👁️ Local Vision (Auto-detected)
 
-DeepSeek no puede ver imágenes. **DeepCode le da ojos.**
+DeepSeek cannot see images. **DeepCode gives it eyes.**
 
-Al ejecutar `deepcode`, el proxy detecta automáticamente si tienes un LLM de visión local corriendo. Si lo encuentra, intercepta las imágenes, las convierte en descripciones textuales detalladas y se las pasa a DeepSeek para que razone sobre ellas. Si no encuentra un LLM local, funciona normal en modo texto.
+When you run `deepcode`, the proxy automatically detects if you have a local vision LLM running. If it finds one, it intercepts images, converts them into highly detailed textual descriptions, and passes them to DeepSeek so it can reason about them. If no local LLM is found, it falls back to normal text mode.
 
-**Activar visión (3 pasos):**
-1. Instala [Ollama](https://ollama.com)
-2. `ollama pull qwen2-vl:7b`
-3. Ejecuta `deepcode` — la visión se activa sola
+**Enable vision (3 steps):**
+1. Install [Ollama](https://ollama.com)
+2. Run `ollama pull qwen2-vl:7b`
+3. Run `deepcode` — vision is automatically activated!
 
-**Modelos recomendados:**
-| Modelo | VRAM | Calidad |
+**Recommended Models:**
+| Model | VRAM | Quality |
 |--------|------|---------|
-| `qwen2-vl:7b` | ~5 GB | Muy buena |
-| `qwen3-vl:8b` | ~6 GB | Excelente |
-| `llava:7b` | ~5 GB | Buena |
-| `moondream` | ~2 GB | Ligera |
+| `qwen2-vl:7b` | ~5 GB | Very Good |
+| `qwen3-vl:8b` | ~6 GB | Excellent |
+| `llava:7b` | ~5 GB | Good |
+| `moondream` | ~2 GB | Lightweight |
 
-También soporta **LM Studio** (`localhost:1234`).
+It also supports **LM Studio** (`localhost:1234`).
 
-## 📜 Licencia
+## 📜 License
 
 MIT
