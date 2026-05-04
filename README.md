@@ -7,6 +7,8 @@
 ## ✨ ¿Qué hace especial a DeepCode?
 
 - 👁️ **Visión con DeepSeek** — DeepSeek no soporta imágenes. DeepCode sí. Auto-detecta Ollama o LM Studio y le da ojos a DeepSeek usando un modelo de visión local. Sin configurar nada.
+- 🧠 **Soporte Nativo Thinking Mode** — Renderiza el razonamiento (R1) de DeepSeek directamente en el bloque colapsable `∴ Thinking…` de Claude Code. Soporta tool-calls encadenadas sin perder contexto.
+- 🎛️ **Control de Esfuerzo Nativo** — Usa el comando `/effort low` o `/effort max` en la consola; el proxy traduce en tiempo real los tokens al motor de DeepSeek.
 - 🔧 **100% compatible con Claude Code** — Mismos flags, mismas tools, mismo entorno. Usa `deepcode` igual que usarías `claude`.
 - 💰 **95% más barato** — DeepSeek V4 Pro cuesta ~$0.04 por cada $0.90 de Claude Sonnet.
 - 🔄 **Continúa sesiones de Claude** — ¿Se te acabaron los tokens? `deepcode --resume` y sigues donde lo dejaste.
@@ -35,9 +37,14 @@ deepcode                              # Nueva sesión
 deepcode --resume                     # Continuar sesión anterior
 deepcode --dangerously-skip-permissions  # Modo autónomo
 deepcode "crea una API REST con Express" # Prompt directo
+deepcode --no-vision                  # Desactiva la visión auto-detectada
 ```
 
 Cualquier flag de `claude` funciona con `deepcode`.
+
+**Comandos nativos dentro de la consola:**
+- `/effort low` o `/effort max`: Controla el tiempo y la profundidad del pensamiento de DeepSeek en tiempo real.
+- `/model sonnet`: Cambia al instante a la versión ultra-rápida `deepseek-v4-flash`.
 
 ## ⚙️ Configuración
 

@@ -317,11 +317,15 @@ function startProxy(options = {}) {
             [sessionMarker.ENV_VAR]: sessionId,
         };
 
+        // Filter out deepcode-specific flags before forwarding to Claude Code
+        const DEEPCODE_FLAGS = new Set(['--no-vision', '--setup-vision']);
+        const claudeArgs = process.argv.slice(2).filter(a => !DEEPCODE_FLAGS.has(a));
+
         const isWin = process.platform === 'win32';
         const command = isWin ? 'cmd.exe' : 'npx';
         const args = isWin
-            ? ['/c', 'npx', '-y', '@anthropic-ai/claude-code', ...process.argv.slice(2)]
-            : ['-y', '@anthropic-ai/claude-code', ...process.argv.slice(2)];
+            ? ['/c', 'npx', '-y', '@anthropic-ai/claude-code', ...claudeArgs]
+            : ['-y', '@anthropic-ai/claude-code', ...claudeArgs];
 
         const child = spawn(command, args, { env, stdio: 'inherit' });
 

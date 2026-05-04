@@ -15,17 +15,22 @@ Uso:
   deepcode
   deepcode "hazme un script de automatización"
   deepcode --no-vision           Desactiva la detección de visión local
-  deepcode --setup-vision        Re-configura el proveedor de visión
+  deepcode --setup-vision        Fuerza re-detección del proveedor de visión
 
-Visión local:
+Visión local (automática):
   Si tienes Ollama o LM Studio corriendo con un modelo de visión (ej: qwen2-vl),
-  DeepCode lo detecta automáticamente y habilita soporte de imágenes.
+  DeepCode lo detecta y configura automáticamente al iniciar.
+  Usa --no-vision para desactivarlo, o --setup-vision para forzar re-detección.
 
 Modelos:
 - Inicia por defecto con: DeepSeek V4 Pro
 - Para cambiar a la versión rápida (Flash), usa dentro de la consola: /model sonnet
 
-Configuración:
+Configuración de Esfuerzo (NUEVO):
+- DeepCode soporta el comando nativo /effort de Claude Code (/effort low, /effort max)
+- DeepSeek usa 'max' por defecto (mejor para código complejo)
+
+Configuración de entorno:
 - .env resuelto desde: ${envInfo.path || '(no encontrado — exporta DEEPSEEK_API_KEY en tu shell)'}
 - Búsqueda walk-up desde CWD, fallback a ~/.deepcode-v4/.env
 `);
@@ -39,7 +44,7 @@ if (process.argv.includes('--version') || process.argv.includes('-v')) {
 
 if (process.argv.includes('--setup-vision')) {
     clearConfig();
-    console.log('🔄 Configuración de visión eliminada. Se re-detectará en el próximo inicio.');
+    console.log('🔄 Config de visión eliminada — se re-detectará automáticamente al iniciar.');
 }
 
 async function main() {

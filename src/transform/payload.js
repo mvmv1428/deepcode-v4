@@ -167,6 +167,12 @@ function syncToolChoice(toolChoice, originalTools, mappedTools) {
 function transformBlock(block) {
     if (!block || typeof block !== 'object') return block;
 
+    // Preserve thinking / redacted_thinking blocks — DeepSeek requires them
+    // to be passed back during tool-call rounds or it returns HTTP 400.
+    if (block.type === 'thinking' || block.type === 'redacted_thinking') {
+        return block;
+    }
+
     if (block.type === 'image') {
         return { type: 'text', text: IMAGE_STUB_TEXT };
     }
@@ -205,6 +211,21 @@ function transformMessages(messages) {
                 .filter(b => b && !STRIP_BLOCK_TYPES.has(b.type))
                 .map(transformBlock);
         }
+
+        // DeepSeek thinking-mode + tool-calls: the API requires
+        // reasoning_content to be passed back on assistant messages that
+        // contained tool_use blocks.  If Claude Code didn't include it
+        // but DID include thinking content blocks, synthesize it so
+        // DeepSeek doesn't reject the request with HTTP 400.
+        if (m.role === 'assistant' && !m.reasoning_content && Array.isArray(m.content)) {
+            const thinkingParts = m.content
+                .filter(b => b && b.type === 'thinking' && b.thinking)
+                .map(b => b.thinking);
+            if (thinkingParts.length > 0) {
+                m.reasoning_content = thinkingParts.join('\n');
+            }
+        }
+
         return m;
     });
 }
@@ -219,9 +240,31 @@ function sanitizeRequestBody(parsed) {
 
     if (parsed.tool_choice) {
         parsed.tool_choice = syncToolChoice(parsed.tool_choice, originalTools, parsed.tools);
+        // DeepSeek Anthropic API compatibility: disable_parallel_tool_use is not supported
+        if (parsed.tool_choice.disable_parallel_tool_use !== undefined) {
+            delete parsed.tool_choice.disable_parallel_tool_use;
+        }
     }
 
     parsed.messages = transformMessages(parsed.messages);
+
+    // Effort control (Improvement #4)
+    let effortLevel;
+
+    // We map Anthropic budget_tokens (from Claude Code native /effort) to DeepSeek's effort parameter (DeepSeek only supports 'high' or 'max').
+    if (parsed.thinking && parsed.thinking.budget_tokens) {
+        const budget = parsed.thinking.budget_tokens;
+        // Claude native mappings roughly: low=1024, medium=2048, high=4096, xhigh=8192, max=16384+
+        if (budget <= 4096) effortLevel = 'high'; // Map low/medium/high to 'high'
+        else effortLevel = 'max'; // Map xhigh/max to 'max'
+    }
+
+    if (effortLevel) {
+        // DeepSeek documentation supports effort parameter
+        parsed.effort = effortLevel;
+        // Also set reasoning_effort in case they follow OpenAI convention on some endpoints
+        parsed.reasoning_effort = effortLevel;
+    }
 
     return parsed;
 }

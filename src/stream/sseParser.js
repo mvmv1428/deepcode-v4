@@ -72,7 +72,54 @@ function logCacheUsage(usage) {
     if (usageTracker.isEnabled()) usageTracker.recordUsage(usage); // DEBUG_USAGE
 }
 
-function transformEvent(rawEvent, tracker) {
+// ---------------------------------------------------------------------------
+// Reasoning / Thinking helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a serialized SSE event string from a data object and event name.
+ */
+function buildSSE(eventName, dataObj) {
+    return serializeEvent({ eventName, dataString: JSON.stringify(dataObj) });
+}
+
+/**
+ * Create a synthetic content_block_start event for a thinking block.
+ */
+function syntheticThinkingStart(index) {
+    return buildSSE('content_block_start', {
+        type: 'content_block_start',
+        index,
+        content_block: { type: 'thinking', thinking: '' },
+    });
+}
+
+/**
+ * Create a synthetic content_block_delta with thinking_delta payload.
+ */
+function syntheticThinkingDelta(index, text) {
+    return buildSSE('content_block_delta', {
+        type: 'content_block_delta',
+        index,
+        delta: { type: 'thinking_delta', thinking: text },
+    });
+}
+
+/**
+ * Create a synthetic content_block_stop event.
+ */
+function syntheticBlockStop(index) {
+    return buildSSE('content_block_stop', {
+        type: 'content_block_stop',
+        index,
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Main transform — now returns a single string OR an array of strings
+// ---------------------------------------------------------------------------
+
+function transformEvent(rawEvent, tracker, thinkingState) {
     const parsed = parseEvent(rawEvent);
 
     if (!parsed.hadData) return rawEvent;
@@ -81,8 +128,70 @@ function transformEvent(rawEvent, tracker) {
     if (!parsed.dataObj) return rawEvent;
 
     const data = parsed.dataObj;
+    const extra = []; // synthetic events to inject BEFORE this event
 
     try {
+        // ----- Reasoning / Thinking handling --------------------------------
+
+        // Case 1: DeepSeek sends reasoning_content inside a content_block_delta
+        //         (non-standard field). Convert to proper thinking_delta.
+        if (data.type === 'content_block_delta' && data.delta) {
+            const rc = data.delta.reasoning_content;
+            if (rc != null && rc !== '') {
+                if (!thinkingState.started) {
+                    thinkingState.started = true;
+                    thinkingState.index = data.index != null ? data.index : 0;
+                    extra.push(syntheticThinkingStart(thinkingState.index));
+                }
+                extra.push(syntheticThinkingDelta(thinkingState.index, rc));
+                // If there's no other useful content in this delta, suppress
+                // the original event to avoid an empty/duplicate block.
+                if (!data.delta.text && data.delta.type !== 'tool_use') {
+                    return extra;
+                }
+                // Otherwise, strip reasoning_content and let the rest through.
+                delete data.delta.reasoning_content;
+            }
+        }
+
+        // Case 2: DeepSeek sends reasoning_content at the top level of a
+        //         message_start or message_delta event.
+        if ((data.type === 'message_start' || data.type === 'message_delta') && data.reasoning_content) {
+            if (!thinkingState.started) {
+                thinkingState.started = true;
+                thinkingState.index = 0;
+                extra.push(syntheticThinkingStart(thinkingState.index));
+            }
+            extra.push(syntheticThinkingDelta(thinkingState.index, data.reasoning_content));
+            delete data.reasoning_content;
+        }
+
+        // Case 3: Standard Anthropic thinking block starts — track it so we
+        //         don't inject duplicates.
+        if (data.type === 'content_block_start' && data.content_block?.type === 'thinking') {
+            thinkingState.started = true;
+            thinkingState.index = data.index != null ? data.index : 0;
+            thinkingState.native = true; // DeepSeek sent native thinking
+        }
+
+        // Case 4: A non-thinking content block starts AFTER we opened a
+        //         synthetic thinking block. Close it first.
+        if (data.type === 'content_block_start'
+            && data.content_block?.type !== 'thinking'
+            && thinkingState.started
+            && !thinkingState.native
+            && !thinkingState.closed) {
+            thinkingState.closed = true;
+            extra.push(syntheticBlockStop(thinkingState.index));
+            // Bump all subsequent indices by 1 to account for the synthetic
+            // thinking block we injected at thinkingState.index.
+            if (typeof data.index === 'number') {
+                data.index = Math.max(data.index, thinkingState.index + 1);
+            }
+        }
+
+        // ----- Tool ID handling (existing logic, unchanged) -----------------
+
         if (data.type === 'content_block_start' && data.content_block?.type === 'tool_use') {
             const idx = data.index;
             if (data.content_block.id) {
@@ -102,6 +211,8 @@ function transformEvent(rawEvent, tracker) {
             );
         }
 
+        // ----- Cache usage logging (existing logic, unchanged) --------------
+
         if (data.type === 'message_start') {
             logCacheUsage(data.message?.usage);
         } else if (data.type === 'message_delta') {
@@ -116,15 +227,22 @@ function transformEvent(rawEvent, tracker) {
         eventName = data.type;
     }
 
-    return serializeEvent({
+    const thisEvent = serializeEvent({
         eventName,
         dataString: JSON.stringify(data),
         otherLines: parsed.otherLines,
     });
+
+    if (extra.length > 0) {
+        extra.push(thisEvent);
+        return extra;
+    }
+    return thisEvent;
 }
 
 function createStreamProcessor() {
     const tracker = new ToolIdTracker();
+    const thinkingState = { started: false, index: null, native: false, closed: false };
     let buffer = '';
 
     return {
@@ -134,17 +252,36 @@ function createStreamProcessor() {
             const out = [];
             for (const ev of events) {
                 if (!ev.trim()) continue;
-                out.push(transformEvent(ev, tracker));
+                const result = transformEvent(ev, tracker, thinkingState);
+                if (Array.isArray(result)) {
+                    for (const r of result) out.push(r);
+                } else {
+                    out.push(result);
+                }
             }
             return out;
         },
         flush() {
             const remainder = buffer;
             buffer = '';
-            if (!remainder.trim()) return [];
-            return [transformEvent(remainder, tracker)];
+            const out = [];
+            // Close any open synthetic thinking block before stream ends
+            if (thinkingState.started && !thinkingState.native && !thinkingState.closed) {
+                thinkingState.closed = true;
+                out.push(syntheticBlockStop(thinkingState.index));
+            }
+            if (remainder.trim()) {
+                const result = transformEvent(remainder, tracker, thinkingState);
+                if (Array.isArray(result)) {
+                    for (const r of result) out.push(r);
+                } else {
+                    out.push(result);
+                }
+            }
+            return out;
         },
         tracker,
+        thinkingState,
     };
 }
 
