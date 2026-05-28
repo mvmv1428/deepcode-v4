@@ -32,11 +32,21 @@ Before installing DeepCode, make sure you have:
 npm install -g deepcode-v4
 ```
 
+On the **first launch**, if no `DEEPSEEK_API_KEY` is found, DeepCode prompts for it in the console (masked input), validates the format (`sk-...`), and saves it globally to `~/.deepcode-v4/.env`. You only do this **once** — works across all projects, no per-project `.env` required.
+
+```bash
+deepcode            # First run → prompts for API key, then starts
+deepcode --setup    # Reconfigure / replace the saved API key
+```
+
+Get your key at [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys).
+
 ## 📋 Usage
 
 ```bash
 deepcode                              # New session
 deepcode "create an Express REST API" # Direct prompt
+deepcode --setup                      # Configure or replace global DEEPSEEK_API_KEY
 deepcode --no-vision                  # DeepCode specific: Disable auto-detected vision
 
 # --- Native Claude Code Flags ---
@@ -54,14 +64,15 @@ Any other `claude` flag works perfectly with `deepcode`.
 
 ## ⚙️ Configuration
 
-Configure your `DEEPSEEK_API_KEY` in one of the following ways:
-- `.env` file in your working directory
-- System environment variable
-- `~/.deepcode-v4/.env` (recommended for global use)
+The interactive setup at first launch covers the common case. For advanced setups, `DEEPSEEK_API_KEY` is resolved in this precedence order:
 
-Check `.env.example` to see all available options.
+1. Shell environment variable (`export DEEPSEEK_API_KEY=sk-...`)
+2. `.env` file walking up from the current working directory (per-project override)
+3. `~/.deepcode-v4/.env` (global, written by `deepcode --setup`)
 
-> ⚠️ **Security:** Your API key stays on your local machine. If you create the `.env` inside a project, remember to add `.env` to your `.gitignore`.
+Run `deepcode --setup` anytime to replace the saved global key. Check `.env.example` for all optional vars (model overrides, retry, timeouts, telemetry).
+
+> ⚠️ **Security:** Your API key stays on your local machine. The global file `~/.deepcode-v4/.env` is created with `0600` permissions on POSIX. If you put a `.env` inside a project, remember to add `.env` to your `.gitignore`.
 
 ## 👁️ Local Vision (Auto-detected)
 

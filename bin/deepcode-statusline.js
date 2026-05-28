@@ -73,15 +73,15 @@ function modelLabel(model) {
 }
 
 function buildStatusline(marker) {
-    const agg = marker.stats || { count: 0, input: 0, output: 0, cost: 0, lastModel: null };
+    const agg = marker.stats || { count: 0, input: 0, output: 0, cost: 0, lastModel: null, lastInput: 0 };
     const model = agg.lastModel || marker.model;
-    const totalTok = agg.input + agg.output;
+    const ctxTok = typeof agg.lastInput === 'number' ? agg.lastInput : agg.input;
 
     return [
         C.bold(C.blue('⚡ DeepCode')),
         modelLabel(model),
         `${C.bold(agg.count)} ${C.dim('req')}`,
-        `${C.bold(fmtTokens(totalTok))} ${C.dim('tok')}`,
+        `${C.bold(fmtTokens(ctxTok))} ${C.dim('ctx')}`,
         C.green(fmtUsd(agg.cost)),
     ].join(C.dim(' │ '));
 }

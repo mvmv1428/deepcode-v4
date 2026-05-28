@@ -318,7 +318,7 @@ function startProxy(options = {}) {
         };
 
         // Filter out deepcode-specific flags before forwarding to Claude Code
-        const DEEPCODE_FLAGS = new Set(['--no-vision', '--setup-vision']);
+        const DEEPCODE_FLAGS = new Set(['--no-vision', '--setup-vision', '--setup', '--set-api-key']);
         const claudeArgs = process.argv.slice(2).filter(a => !DEEPCODE_FLAGS.has(a));
 
         const isWin = process.platform === 'win32';

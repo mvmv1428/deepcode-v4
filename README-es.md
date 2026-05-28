@@ -32,11 +32,21 @@ Antes de instalar DeepCode, asegúrate de tener:
 npm install -g deepcode-v4
 ```
 
+En el **primer arranque**, si no encuentra `DEEPSEEK_API_KEY`, DeepCode te la pide por consola (input enmascarado), valida el formato (`sk-...`) y la guarda globalmente en `~/.deepcode-v4/.env`. Solo lo haces **una vez** — funciona para todos tus proyectos, sin tener que crear un `.env` por proyecto.
+
+```bash
+deepcode            # Primer uso → pide la API key y arranca
+deepcode --setup    # Reconfigura o reemplaza la key guardada
+```
+
+Obtén tu key en [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys).
+
 ## 📋 Uso
 
 ```bash
 deepcode                              # Nueva sesión
 deepcode "crea una API REST con Express" # Prompt directo
+deepcode --setup                      # Configurar o reemplazar DEEPSEEK_API_KEY global
 deepcode --no-vision                  # Exclusivo de DeepCode: Desactiva la visión auto-detectada
 
 # --- Flags Nativos de Claude Code ---
@@ -54,14 +64,15 @@ Cualquier otro flag de `claude` funciona con `deepcode`.
 
 ## ⚙️ Configuración
 
-Configura tu `DEEPSEEK_API_KEY` de una de estas formas:
-- Archivo `.env` en tu carpeta de trabajo
-- Variable de entorno del sistema
-- `~/.deepcode-v4/.env` (recomendado para uso global)
+El setup interactivo del primer arranque cubre el caso común. Para configuraciones avanzadas, `DEEPSEEK_API_KEY` se resuelve con esta precedencia:
 
-Revisa `.env.example` para ver todas las opciones disponibles.
+1. Variable de entorno del shell (`export DEEPSEEK_API_KEY=sk-...`)
+2. Archivo `.env` con búsqueda walk-up desde el directorio actual (override por proyecto)
+3. `~/.deepcode-v4/.env` (global, escrito por `deepcode --setup`)
 
-> ⚠️ **Seguridad:** Tu API key se queda en tu máquina local. Si creas el `.env` dentro de un proyecto, recuerda agregar `.env` a tu `.gitignore`.
+Ejecuta `deepcode --setup` cuando quieras reemplazar la key guardada. Revisa `.env.example` para todas las vars opcionales (overrides de modelo, retry, timeouts, telemetría).
+
+> ⚠️ **Seguridad:** Tu API key se queda en tu máquina local. El archivo global `~/.deepcode-v4/.env` se crea con permisos `0600` en POSIX. Si pones un `.env` dentro de un proyecto, recuerda agregar `.env` a tu `.gitignore`.
 
 ## 👁️ Visión Local (Auto-detectada)
 

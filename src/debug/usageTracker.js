@@ -150,6 +150,10 @@ function endRequest() {
                 output: session.totalOutputTokens,
                 cost: session.totalCostUsd,
                 lastModel: current.model,
+                lastInput: current.inputTokens,
+                lastOutput: current.outputTokens,
+                lastCacheHit: current.cacheHitTokens,
+                lastCacheMiss: current.cacheMissTokens,
             };
             sessionMarker.writeMarker(marker);
         }
