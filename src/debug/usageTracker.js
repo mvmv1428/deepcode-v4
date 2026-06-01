@@ -125,9 +125,16 @@ function endRequest() {
         ? ((current.cacheHitTokens / totalCacheTokens) * 100).toFixed(1)
         : null;
 
+    // Determine the actual total input tokens for this request (cached + uncached).
+    // If inputTokens is >= cacheHitTokens, it already includes the cached tokens (Anthropic style).
+    // Otherwise, inputTokens only represents the cache miss tokens (some compatibility layers), so we sum them.
+    const actualInputTokens = current.inputTokens >= current.cacheHitTokens
+        ? current.inputTokens
+        : (current.inputTokens + current.cacheHitTokens);
+
     // Update session
     session.requestCount++;
-    session.totalInputTokens += current.inputTokens;
+    session.totalInputTokens += actualInputTokens;
     session.totalOutputTokens += current.outputTokens;
     session.totalCacheHit += current.cacheHitTokens;
     session.totalCacheMiss += current.cacheMissTokens;
@@ -145,7 +152,7 @@ function endRequest() {
                 output: session.totalOutputTokens,
                 cost: session.totalCostUsd,
                 lastModel: current.model,
-                lastInput: current.inputTokens,
+                lastInput: actualInputTokens,
                 lastOutput: current.outputTokens,
                 lastCacheHit: current.cacheHitTokens,
                 lastCacheMiss: current.cacheMissTokens,
