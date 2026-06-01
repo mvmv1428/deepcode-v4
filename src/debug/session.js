@@ -41,15 +41,36 @@ function newSessionId() {
     return crypto.randomUUID().replace(/-/g, '');
 }
 
+function cleanStaleMarkers() {
+    try {
+        const dir = sessionDir();
+        if (!fs.existsSync(dir)) return;
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+            if (file.startsWith('deepcode-session-') && file.endsWith('.json')) {
+                const p = path.join(dir, file);
+                try {
+                    const raw = fs.readFileSync(p, 'utf8');
+                    const m = JSON.parse(raw);
+                    if (m && m.pid && !isPidAlive(m.pid)) {
+                        fs.unlinkSync(p);
+                    }
+                } catch {}
+            }
+        }
+    } catch {}
+}
+
 function writeMarker(info) {
     try {
+        cleanStaleMarkers();
         fs.mkdirSync(sessionDir(), { recursive: true });
         const id = info.id || newSessionId();
         const data = {
-            id,
-            pid: process.pid,
-            startedAt: Date.now(),
             ...info,
+            id,
+            pid: info.pid || process.pid,
+            startedAt: info.startedAt || Date.now(),
         };
         fs.writeFileSync(markerPath(id), JSON.stringify(data, null, 2), 'utf8');
         return data;
@@ -68,7 +89,6 @@ function readMarker(id) {
         const raw = fs.readFileSync(markerPath(id), 'utf8');
         const m = JSON.parse(raw);
         if (!isPidAlive(m.pid)) {
-            try { fs.unlinkSync(markerPath(id)); } catch {}
             return null;
         }
         return m;
@@ -88,6 +108,7 @@ module.exports = {
     clearMarker,
     readMarker,
     readActiveMarker,
+    cleanStaleMarkers,
     markerPath,
     isPidAlive,
 };

@@ -74,29 +74,48 @@ function _maskedPrompt(question) {
 
         let buf = '';
         let onData;
+        let restored = false;
+        const restore = () => {
+            if (restored) return;
+            restored = true;
+            try { stdin.setRawMode(wasRaw); } catch {}
+            try { stdin.pause(); } catch {}
+            if (onData) {
+                try { stdin.removeListener('data', onData); } catch {}
+            }
+            try { stdout.write('\n'); } catch {}
+        };
+
+        const onUnexpected = (err) => { restore(); reject(err); };
+        stdin.once('error', onUnexpected);
+        process.once('uncaughtException', onUnexpected);
+
         const finish = (action) => {
-            stdin.setRawMode(wasRaw);
-            stdin.pause();
-            stdin.removeListener('data', onData);
-            stdout.write('\n');
+            restore();
+            stdin.removeListener('error', onUnexpected);
+            process.removeListener('uncaughtException', onUnexpected);
             action();
         };
         onData = (chunk) => {
-            for (const ch of chunk) {
-                const code = ch.charCodeAt(0);
-                if (code === 0x0D || code === 0x0A) return finish(() => resolve(buf));
-                if (code === 0x03) return finish(() => reject(new Error('Cancelado por usuario (Ctrl+C)')));
-                if (code === 0x04 && buf.length === 0) return finish(() => reject(new Error('EOF en entrada')));
-                if (code === 0x7F || code === 0x08) {
-                    if (buf.length > 0) {
-                        buf = buf.slice(0, -1);
-                        stdout.write('\b \b');
+            try {
+                for (const ch of chunk) {
+                    const code = ch.charCodeAt(0);
+                    if (code === 0x0D || code === 0x0A) return finish(() => resolve(buf));
+                    if (code === 0x03) return finish(() => reject(new Error('Cancelado por usuario (Ctrl+C)')));
+                    if (code === 0x04 && buf.length === 0) return finish(() => reject(new Error('EOF en entrada')));
+                    if (code === 0x7F || code === 0x08) {
+                        if (buf.length > 0) {
+                            buf = buf.slice(0, -1);
+                            stdout.write('\b \b');
+                        }
+                        continue;
                     }
-                    continue;
+                    if (code < 32) continue;
+                    buf += ch;
+                    stdout.write('*');
                 }
-                if (code < 32) continue;
-                buf += ch;
-                stdout.write('*');
+            } catch (err) {
+                finish(() => reject(err));
             }
         };
         stdin.on('data', onData);

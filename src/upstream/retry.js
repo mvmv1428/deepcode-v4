@@ -1,8 +1,12 @@
 'use strict';
 
-// 429 (rate-limit) excluded: the API already charged tokens on the first attempt.
-// Retrying 429 would multiply token cost without benefit.
-const RETRYABLE_STATUSES = new Set([408, 425, 500, 502, 503, 504]);
+// 429 (rate-limit) is included because rate-limit errors do not charge tokens,
+// and retrying them allows recovering from temporary upstream rate limits.
+const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+// Hard deny-list: never retry these statuses even if a caller overrides
+// `retry.statuses`. Permanent client-side errors (auth, validation, not found)
+// will not be fixed by retrying — fail fast.
+const NON_RETRYABLE_STATUSES = new Set([400, 401, 403, 404, 422]);
 const RETRYABLE_ERROR_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'ENETUNREACH', 'ECONNREFUSED']);
 
 function computeBackoffMs(attempt, base, max) {
@@ -12,6 +16,7 @@ function computeBackoffMs(attempt, base, max) {
 }
 
 function shouldRetryStatus(statusCode, retry) {
+    if (NON_RETRYABLE_STATUSES.has(statusCode)) return false;
     if (!retry.statuses) return false;
     return retry.statuses.has(statusCode);
 }

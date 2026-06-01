@@ -62,14 +62,16 @@ function serializeEvent({ eventName, dataString, otherLines = [] }) {
 
 function logCacheUsage(usage) {
     if (!usage || typeof usage !== 'object') return;
-    const hit = usage.prompt_cache_hit_tokens;
-    const miss = usage.prompt_cache_miss_tokens;
-    if (typeof hit === 'number' || typeof miss === 'number') {
-        const h = typeof hit === 'number' ? hit : 0;
-        const m = typeof miss === 'number' ? miss : 0;
-        console.error(`[deepcode] cache hit=${h} miss=${m} (total input=${h + m})`);
+    if (process.env.DEEPCODE_DEBUG_CACHE === '1') {
+        const hit = usage.prompt_cache_hit_tokens;
+        const miss = usage.prompt_cache_miss_tokens;
+        if (typeof hit === 'number' || typeof miss === 'number') {
+            const h = typeof hit === 'number' ? hit : 0;
+            const m = typeof miss === 'number' ? miss : 0;
+            console.error(`[deepcode] cache hit=${h} miss=${m} (total input=${h + m})`);
+        }
     }
-    if (usageTracker.isEnabled()) usageTracker.recordUsage(usage); // DEBUG_USAGE
+    if (usageTracker.isEnabled()) usageTracker.recordUsage(usage);
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +220,10 @@ function transformEvent(rawEvent, tracker, thinkingState) {
         } else if (data.type === 'message_delta') {
             logCacheUsage(data.usage);
         }
-    } catch {
+    } catch (err) {
+        if (process.env.DEEPCODE_DEBUG === '1') {
+            console.error('[deepcode] SSE transform error:', err.message);
+        }
         return rawEvent;
     }
 

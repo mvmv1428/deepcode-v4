@@ -42,9 +42,15 @@ function listSessionsForProject(projectDir) {
         .sort((a, b) => b.mtimeMs - a.mtimeMs);
 }
 
+const SAFE_SESSION_RE = /^[A-Za-z0-9_-]+$/;
+
 function resolveSessionPath({ projectDir, sessionId }) {
-    if (!sessionId) return null;
+    if (!sessionId || typeof sessionId !== 'string') return null;
+    if (!SAFE_SESSION_RE.test(sessionId)) return null;
     const direct = path.join(projectDir, `${sessionId}.jsonl`);
+    const resolved = path.resolve(direct);
+    const base = path.resolve(projectDir);
+    if (!resolved.startsWith(base + path.sep) && resolved !== base) return null;
     if (fs.existsSync(direct)) return direct;
     return null;
 }

@@ -1,5 +1,7 @@
 'use strict';
 
+const os = require('os');
+
 const EXPERT_PROMPT_BASE = `
 You are an expert Claude Code agent powered by DeepSeek V4.
 
@@ -73,10 +75,48 @@ const TILDE_SLASH_RE = /~\//g;
 
 function sanitizeText(s) {
     if (typeof s !== 'string') return s;
-    return s
+    let res = s;
+
+    // 1. Replace workspace absolute path (CWD) with "." to make it relative
+    const cwd = process.cwd();
+    if (process.platform === 'win32') {
+        const cwdLower = cwd.toLowerCase();
+        let idx = 0;
+        while ((idx = res.toLowerCase().indexOf(cwdLower, idx)) !== -1) {
+            res = res.substring(0, idx) + '.' + res.substring(idx + cwd.length);
+            idx += 1;
+        }
+    } else {
+        res = res.split(cwd).join('.');
+    }
+
+    // 2. Replace user home directory with "~" to hide personal usernames
+    const home = os.homedir();
+    if (home) {
+        if (process.platform === 'win32') {
+            const homeLower = home.toLowerCase();
+            let idx = 0;
+            while ((idx = res.toLowerCase().indexOf(homeLower, idx)) !== -1) {
+                res = res.substring(0, idx) + '~' + res.substring(idx + home.length);
+                idx += 1;
+            }
+        } else {
+            res = res.split(home).join('~');
+        }
+    }
+
+    // 3. Apply standard regex cleanups for paths
+    res = res
         .replace(TILDE_SLASH_RE, '')
-        .replace(HOME_PATH_RE, '.')
-        .replace(WIN_PATH_RE, 'current directory');
+        .replace(HOME_PATH_RE, '.');
+
+    // 4. Fallback: clean up other Windows absolute paths to .\basename
+    res = res.replace(WIN_PATH_RE, (match) => {
+        const parts = match.split('\\');
+        return '.\\' + parts[parts.length - 1];
+    });
+
+    return res;
 }
 
 function rebrandSystemText(s) {

@@ -32,11 +32,18 @@ function findGlobalEnvFile() {
     return null;
 }
 
+let _cachedConfig = null;
+
+function clearConfigCache() {
+    _cachedConfig = null;
+}
+
 function loadEnv(opts = {}) {
     if (_loaded && !opts.force) {
         return { loaded: true, path: _loadedFrom, cached: true };
     }
 
+    _cachedConfig = null;
     const startDir = opts.startDir || process.cwd();
 
     let envPath = findEnvFileWalkUp(startDir);
@@ -55,8 +62,10 @@ function loadEnv(opts = {}) {
 }
 
 function getConfig() {
+    if (_cachedConfig) return _cachedConfig;
+
     const apiKey = process.env.DEEPSEEK_API_KEY;
-    return {
+    _cachedConfig = {
         apiKey,
         upstream: {
             host: process.env.DEEPSEEK_API_HOST || 'api.deepseek.com',
@@ -81,6 +90,7 @@ function getConfig() {
             retryNetworkErrors: process.env.DEEPCODE_RETRY_NETWORK !== 'false',
         },
     };
+    return _cachedConfig;
 }
 
 const KNOWN_MODELS = new Set([
@@ -121,6 +131,7 @@ module.exports = {
     getConfig,
     requireApiKey,
     validateKnownModels,
+    clearConfigCache,
     KNOWN_MODELS,
     findEnvFileWalkUp,
     findGlobalEnvFile,

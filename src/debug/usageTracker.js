@@ -9,11 +9,12 @@
  * Stats are persisted to the session marker for the statusline.
  */
 
-const { getRate, isPromoActive, daysUntilPromoEnd, PROMO_END_UTC } = require('./pricing');
+const { getRate } = require('./pricing');
 const sessionMarker = require('./session');
 
 let _enabled = null;
 let _initialized = false;
+let _handlersRegistered = false;
 let currentSessionId = null;
 
 function _getEnabled() {
@@ -26,8 +27,8 @@ function setSessionId(id) {
 }
 
 // Session-level cumulative stats
-const session = {
-    startedAt: Date.now(),
+let session = {
+    startedAt: null,
     requestCount: 0,
     totalInputTokens: 0,
     totalOutputTokens: 0,
@@ -61,20 +62,14 @@ function _initOnce() {
     _initialized = true;
     if (!_getEnabled()) return;
 
-    process.on('exit', printSessionSummary);
-    process.on('SIGINT', () => { printSessionSummary(); process.exit(0); });
-    process.on('SIGTERM', () => { printSessionSummary(); process.exit(0); });
-
-
-    // Warn when promotional discount window is closing
-    if (isPromoActive()) {
-        const days = daysUntilPromoEnd();
-        if (days <= 7) {
-            process.stderr.write(`[deepcode] ⚠️  v4-pro 75% promo ends in ${days}d (${PROMO_END_UTC}). Retail pricing kicks in automatically.\n`);
-        }
-    } else {
-        process.stderr.write(`[deepcode] ℹ️  v4-pro promo expired ${PROMO_END_UTC} — using retail pricing.\n`);
+    if (!_handlersRegistered) {
+        _handlersRegistered = true;
+        // Solo escuchar 'exit' — el proxy controla SIGINT/SIGTERM y llama process.exit()
+        // que dispara 'exit', asegurando que limpiamos el título del terminal.
+        process.on('exit', printSessionSummary);
     }
+
+    session.startedAt = Date.now();
 
     // Set initial title
     process.stderr.write(`\x1b]0;📊 DeepCode-V4 — Esperando requests...\x07`);

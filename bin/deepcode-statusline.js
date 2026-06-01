@@ -110,6 +110,9 @@ function statuslineCommand() {
 }
 
 function install() {
+    if (process.env.CI === 'true' || process.env.CI === '1' || process.env.DEEPCODE_NO_POSTINSTALL === '1') {
+        return;
+    }
     try {
         const settings = readSettings();
         settings.statusLine = { type: 'command', command: statuslineCommand() };
@@ -158,7 +161,12 @@ async function main() {
     if (argv.includes('--uninstall')) { uninstall(); return; }
 
     if (argv.includes('--self-test')) {
-        const fake = { startedAt: 0, model: 'deepseek-v4-pro[1m]', logPath: path.join(process.cwd(), 'usage.jsonl') };
+        const fake = {
+            startedAt: 0,
+            model: 'deepseek-v4-pro[1m]',
+            logPath: path.join(process.cwd(), 'usage.jsonl'),
+            stats: { count: 5, input: 12400, output: 3200, cost: 0.0183, lastModel: 'deepseek-v4-pro[1m]', lastInput: 2480 },
+        };
         process.stdout.write(buildStatusline(fake) + '\n');
         return;
     }

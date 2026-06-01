@@ -16,18 +16,27 @@ const usageTracker = require('./debug/usageTracker'); // DEBUG_USAGE
 const sessionMarker = require('./debug/session');
 
 loadEnv();
-const config = getConfig();
 
-const httpsAgent = new https.Agent({
-    keepAlive: true,
-    keepAliveMsecs: 30000,
-    maxSockets: config.server.maxSockets,
-});
-const httpAgent = new http.Agent({
-    keepAlive: true,
-    keepAliveMsecs: 30000,
-    maxSockets: config.server.maxSockets,
-});
+let httpsAgent = null;
+let httpAgent = null;
+
+function getAgents(maxSockets) {
+    if (!httpsAgent || httpsAgent.maxSockets !== maxSockets) {
+        httpsAgent = new https.Agent({
+            keepAlive: true,
+            keepAliveMsecs: 30000,
+            maxSockets,
+        });
+    }
+    if (!httpAgent || httpAgent.maxSockets !== maxSockets) {
+        httpAgent = new http.Agent({
+            keepAlive: true,
+            keepAliveMsecs: 30000,
+            maxSockets,
+        });
+    }
+    return { httpsAgent, httpAgent };
+}
 
 function isStreamingResponse(proxyRes, parsedRequest) {
     if (proxyRes.statusCode < 200 || proxyRes.statusCode >= 300) return false;
@@ -38,6 +47,7 @@ function isStreamingResponse(proxyRes, parsedRequest) {
 }
 
 function createProxyServer() {
+    const config = getConfig();
     const apiKey = config.apiKey;
     const {
         host: UPSTREAM_HOST,
@@ -47,6 +57,8 @@ function createProxyServer() {
         streamIdleMs: STREAM_IDLE_MS,
     } = config.upstream;
     const MAX_BODY = config.server.maxBody;
+
+    const { httpsAgent: activeHttpsAgent, httpAgent: activeHttpAgent } = getAgents(config.server.maxSockets);
 
     const transport = UPSTREAM_TLS ? https : http;
     const retryClient = createRetryClient({
@@ -146,7 +158,7 @@ function createProxyServer() {
                     method: req.method,
                     headers: outgoingHeaders,
                     timeout: UPSTREAM_TIMEOUT_MS,
-                    agent: UPSTREAM_TLS ? httpsAgent : httpAgent,
+                    agent: UPSTREAM_TLS ? activeHttpsAgent : activeHttpAgent,
                 },
                 bodyStr,
                 {
@@ -172,11 +184,24 @@ function createProxyServer() {
                         if (typeof res.flushHeaders === 'function') res.flushHeaders();
 
                         if (!streaming) {
+                            const nsBuf = [];
+                            proxyRes.on('data', (chunk) => nsBuf.push(chunk));
                             proxyRes.pipe(res);
-                            proxyRes.on('end', () => { streamDone = true; });
+                            proxyRes.on('end', () => {
+                                streamDone = true;
+                                // Extract usage from non-streaming JSON response
+                                if (usageTracker.isEnabled()) {
+                                    try {
+                                        const body = JSON.parse(Buffer.concat(nsBuf).toString('utf8'));
+                                        if (body && body.usage) usageTracker.recordUsage(body.usage);
+                                    } catch {}
+                                    usageTracker.endRequest();
+                                }
+                            });
                             proxyRes.on('error', err => {
                                 console.error('upstream non-stream error:', err.message);
                                 streamDone = true;
+                                if (usageTracker.isEnabled()) usageTracker.endRequest();
                                 if (!res.writableEnded) res.end();
                             });
                             return;
@@ -254,10 +279,10 @@ function createProxyServer() {
                             // already finalized (e.g. via idle watchdog) — suppress duplicate noise
                             return;
                         }
-                        console.error('\n❌ Proxy error a DeepSeek:', err.message);
+                        console.error('\n❌ Proxy error → DeepSeek:', err.message);
                         if (!res.headersSent) {
                             res.writeHead(502, { 'content-type': 'text/plain' });
-                            res.end(`upstream error: ${err.message}`);
+                            res.end('upstream error');
                         } else if (!res.writableEnded) {
                             res.end();
                         }
@@ -276,8 +301,10 @@ function createProxyServer() {
 
 let _started = false;
 function startProxy(options = {}) {
-    if (_started) return;
+    if (_started) return Promise.resolve(null);
     _started = true;
+
+    const config = getConfig();
 
     if (!config.apiKey && !options.allowMissingKey) {
         requireApiKey();
@@ -285,60 +312,84 @@ function startProxy(options = {}) {
 
     validateKnownModels(config);
 
-    const server = createProxyServer();
-    server.listen(options.port || 0, '127.0.0.1', () => {
-        const port = server.address().port;
-        const proxyUrl = `http://127.0.0.1:${port}/anthropic`;
+    return new Promise((resolve, reject) => {
+        const server = createProxyServer();
+        server.on('error', reject);
+        server.listen(options.port || 0, '127.0.0.1', () => {
+            const port = server.address().port;
+            const proxyUrl = `http://127.0.0.1:${port}/anthropic`;
 
+            const sessionId = sessionMarker.newSessionId();
+            sessionMarker.writeMarker({
+                id: sessionId,
+                model: options.model || config.models.primary,
+                proxyUrl,
+            });
+            usageTracker.setSessionId(sessionId);
+            const cleanup = () => sessionMarker.clearMarker(sessionId);
 
-        const sessionId = sessionMarker.newSessionId();
-        sessionMarker.writeMarker({
-            id: sessionId,
-            model: options.model || config.models.primary,
-            proxyUrl,
-        });
-        usageTracker.setSessionId(sessionId);
-        const cleanup = () => sessionMarker.clearMarker(sessionId);
-        process.on('exit', cleanup);
-        process.on('SIGINT', () => { cleanup(); process.exit(0); });
-        process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+            let _shuttingDown = false;
+            const SHUTDOWN_GRACE_MS = parseInt(process.env.DEEPCODE_SHUTDOWN_GRACE_MS || '30000', 10);
+            const gracefulShutdown = () => {
+                if (_shuttingDown) return;
+                _shuttingDown = true;
+                // Stop accepting new connections; in-flight streams keep flowing
+                // until the child exits or the grace timer fires.
+                try { server.close(); } catch {}
+                const forceTimer = setTimeout(() => {
+                    try { cleanup(); } catch {}
+                    process.exit(0);
+                }, SHUTDOWN_GRACE_MS);
+                if (typeof forceTimer.unref === 'function') forceTimer.unref();
+            };
 
-        if (options.noSpawn) return server;
+            process.on('exit', cleanup);
+            process.on('SIGINT', gracefulShutdown);
+            process.on('SIGTERM', gracefulShutdown);
 
-        const env = {
-            ...process.env,
-            ANTHROPIC_BASE_URL: proxyUrl,
-            ANTHROPIC_AUTH_TOKEN: config.apiKey,
-            ANTHROPIC_MODEL: options.model || config.models.primary,
-            ANTHROPIC_DEFAULT_OPUS_MODEL: options.model || config.models.primary,
-            ANTHROPIC_DEFAULT_SONNET_MODEL: config.models.primary,
-            ANTHROPIC_DEFAULT_HAIKU_MODEL: config.models.haiku,
-            CLAUDE_CODE_SUBAGENT_MODEL: config.models.fast,
-            [sessionMarker.ENV_VAR]: sessionId,
-        };
+            if (options.noSpawn) {
+                resolve(server);
+                return;
+            }
 
-        // Filter out deepcode-specific flags before forwarding to Claude Code
-        const DEEPCODE_FLAGS = new Set(['--no-vision', '--setup-vision', '--setup', '--set-api-key']);
-        const claudeArgs = process.argv.slice(2).filter(a => !DEEPCODE_FLAGS.has(a));
+            const env = {
+                ...process.env,
+                ANTHROPIC_BASE_URL: proxyUrl,
+                ANTHROPIC_AUTH_TOKEN: config.apiKey,
+                ANTHROPIC_MODEL: options.model || config.models.primary,
+                ANTHROPIC_DEFAULT_OPUS_MODEL: options.model || config.models.primary,
+                ANTHROPIC_DEFAULT_SONNET_MODEL: config.models.primary,
+                ANTHROPIC_DEFAULT_HAIKU_MODEL: config.models.haiku,
+                CLAUDE_CODE_SUBAGENT_MODEL: config.models.fast,
+                [sessionMarker.ENV_VAR]: sessionId,
+            };
 
-        const isWin = process.platform === 'win32';
-        const command = isWin ? 'cmd.exe' : 'npx';
-        const args = isWin
-            ? ['/c', 'npx', '-y', '@anthropic-ai/claude-code', ...claudeArgs]
-            : ['-y', '@anthropic-ai/claude-code', ...claudeArgs];
+            // Filter out deepcode-specific flags before forwarding to Claude Code
+            const DEEPCODE_FLAGS = new Set(['--no-vision', '--setup-vision', '--setup', '--set-api-key']);
+            const claudeArgs = process.argv.slice(2).filter(a => !DEEPCODE_FLAGS.has(a));
 
-        const child = spawn(command, args, { env, stdio: 'inherit' });
+            const isWin = process.platform === 'win32';
+            const command = isWin ? 'cmd.exe' : 'npx';
+            const args = isWin
+                ? ['/c', 'npx', '-y', '@anthropic-ai/claude-code@latest', ...claudeArgs]
+                : ['-y', '@anthropic-ai/claude-code@latest', ...claudeArgs];
 
-        child.on('exit', (code) => {
-            cleanup();
-            server.close();
-            process.exit(code || 0);
+            const child = spawn(command, args, { env, stdio: 'inherit' });
+
+            child.on('exit', (code, signal) => {
+                cleanup();
+                server.close();
+                // Unix convention: use code if available, else indicate signal termination
+                const exitCode = code != null ? code : (signal ? 1 : 0);
+                process.exit(exitCode);
+            });
+
+            resolve(server);
         });
     });
-    return server;
 }
 
 module.exports = startProxy;
 module.exports.createProxyServer = createProxyServer;
 
-if (require.main === module) startProxy({ model: config.models.primary });
+if (require.main === module) startProxy({ model: getConfig().models.primary });
